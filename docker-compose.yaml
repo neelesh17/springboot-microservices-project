@@ -94,6 +94,7 @@ services:
       - springboot-microservices-net
     ports:
       - 8080:8080
+    restart: on-failure
     depends_on:
       - service-registry
       - mysqldb
@@ -133,6 +134,7 @@ services:
       - springboot-microservices-net
     ports:
       - 8083:8083
+    restart: on-failure
     depends_on:
       - service-registry
       - mysqldb
