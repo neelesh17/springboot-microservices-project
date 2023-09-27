@@ -1,0 +1,146 @@
+version: "1.0"
+
+services:
+  zipkin:
+    image: openzipkin/zipkin
+    container_name: zipkin
+    extra_hosts: [ 'host.docker.internal:host-gateway' ]
+    networks:
+      - springboot-microservices-net
+    ports:
+      - 9411:9411
+
+  rabbitmq:
+    image: rabbitmq:management
+    container_name: rabbitmq
+    networks:
+      - springboot-microservices-net
+    expose:
+      - "5672"
+      - "15672"
+    ports:
+      - 5672:5672
+      - 15672:15672
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+
+  mysqldb:
+    image: mysql
+    container_name: mysqldb
+    ports:
+      - 3306:3306
+    environment:
+      MYSQL_DATABASE: department_db
+      MYSQL_USER: microservice_temp_user
+      MYSQL_PASSWORD: microservice_temp_user@1234
+      MYSQL_ROOT_PASSWORD: microservice_temp_user@1234
+    volumes:
+      - ./init:/docker-entrypoint-initdb.d
+    networks:
+      - springboot-microservices-net
+
+  service-registry:
+    container_name: service-registry
+    build:
+      context: ./service-registry
+      dockerfile: Dockerfile
+    networks:
+      - springboot-microservices-net
+    expose:
+      - 8761
+    ports:
+      - 8761:8761
+    restart: on-failure
+
+  api-gateway:
+    container_name: api-gateway
+    build:
+      context: ./api-gateway
+      dockerfile: Dockerfile
+    networks:
+      - springboot-microservices-net
+    expose:
+      - 9191
+    ports:
+      - 9191:9191
+    restart: on-failure
+    depends_on:
+      - service-registry
+
+  config-server:
+    container_name: config-server
+    build:
+      context: ./config-server
+      dockerfile: Dockerfile
+    networks:
+      - springboot-microservices-net
+    expose:
+      - 9090
+    ports:
+      - 9090:9090
+    restart: on-failure
+    depends_on:
+      - service-registry
+
+  department-service:
+    container_name: department-service
+    environment:
+      APPLICATION_NAME: department-service
+    build:
+      context: ./department-service
+      dockerfile: Dockerfile
+    networks:
+      - springboot-microservices-net
+    ports:
+      - 8080:8080
+    depends_on:
+      - service-registry
+      - mysqldb
+      - api-gateway
+      - config-server
+      - zipkin
+      - rabbitmq
+
+  employee-service:
+    container_name: employee-service
+    environment:
+      APPLICATION_NAME: employee-service
+    build:
+      context: ./employee-service
+      dockerfile: Dockerfile
+    networks:
+      - springboot-microservices-net
+    ports:
+      - 8081:8081
+    restart: on-failure
+    depends_on:
+      - service-registry
+      - mysqldb
+      - api-gateway
+      - config-server
+      - zipkin
+      - rabbitmq
+
+  organisation-service:
+    container_name: organisation-service
+    environment:
+      APPLICATION_NAME: organisation-service
+    build:
+      context: ./organisation-service
+      dockerfile: Dockerfile
+    networks:
+      - springboot-microservices-net
+    ports:
+      - 8083:8083
+    depends_on:
+      - service-registry
+      - mysqldb
+      - api-gateway
+      - config-server
+      - zipkin
+      - rabbitmq
+
+networks:
+  springboot-microservices-net:
+    driver: bridge
